@@ -9,7 +9,7 @@ if (!rootElement) {
 }
 
 // Replace with your actual Google Client ID from Cloud Console
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "777581521134-3lhd7fvvov8vbkqgaf6ve5l7pe5krjk8.apps.googleusercontent.com";
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(
