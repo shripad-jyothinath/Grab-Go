@@ -1,0 +1,7 @@
+{
+  "name": "Grab&Go",
+  "description": "A streamlined campus food pre-ordering platform connecting students with university cafeterias. Features role-based access, real-time order tracking, and AI-powered menu management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
