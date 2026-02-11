@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { extractMenuFromImage } from '../../services/geminiService';
 import { MenuItem } from '../../types';
-import { Plus, Trash2, Edit2, Sparkles, Loader2, Upload } from 'lucide-react';
+import { Plus, Trash2, Edit2, Sparkles, Loader2, Upload, Power, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function MenuManager() {
   const { currentUser, menuItems, addMenuItem, deleteMenuItem, updateMenuItem } = useStore();
@@ -53,7 +53,9 @@ export default function MenuManager() {
     e.preventDefault();
     if (currentUser?.restaurantId) {
       if (editingId) {
-        updateMenuItem({ ...formData, id: editingId, restaurantId: currentUser.restaurantId } as MenuItem);
+        // Preserve availability status when editing other fields
+        const existingItem = myItems.find(i => i.id === editingId);
+        updateMenuItem({ ...formData, id: editingId, restaurantId: currentUser.restaurantId, isAvailable: existingItem?.isAvailable ?? true } as MenuItem);
       } else {
         addMenuItem({ ...formData, restaurantId: currentUser.restaurantId, isAvailable: true } as MenuItem);
       }
@@ -65,6 +67,10 @@ export default function MenuManager() {
   const startEdit = (item: MenuItem) => {
     setEditingId(item.id);
     setFormData(item);
+  };
+  
+  const toggleAvailability = (item: MenuItem) => {
+      updateMenuItem({ ...item, isAvailable: !item.isAvailable });
   };
 
   return (
@@ -87,18 +93,32 @@ export default function MenuManager() {
                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Item</th>
                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Category</th>
                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">Price</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-center">Status</th>
                 <th className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {myItems.map(item => (
-                <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <tr key={item.id} className={`transition-colors ${!item.isAvailable ? 'bg-slate-50 dark:bg-slate-800/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
                   <td className="px-6 py-4">
-                    <div className="font-medium text-slate-900 dark:text-slate-200">{item.name}</div>
+                    <div className={`font-medium text-slate-900 dark:text-slate-200 ${!item.isAvailable ? 'line-through text-slate-500' : ''}`}>{item.name}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">{item.description}</div>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{item.category}</td>
-                  <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-200">${item.price.toFixed(2)}</td>
+                  <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-200">₹{item.price.toFixed(2)}</td>
+                  <td className="px-6 py-4 text-center">
+                      <button 
+                        onClick={() => toggleAvailability(item)}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border transition ${
+                            item.isAvailable 
+                            ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-900' 
+                            : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                        }`}
+                      >
+                          {item.isAvailable ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                          {item.isAvailable ? 'In Stock' : 'Sold Out'}
+                      </button>
+                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       <button onClick={() => startEdit(item)} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition"><Edit2 size={16} /></button>
@@ -108,7 +128,7 @@ export default function MenuManager() {
                 </tr>
               ))}
               {myItems.length === 0 && (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500">No items yet. Add manually or use AI Import.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500">No items yet. Add manually or use AI Import.</td></tr>
               )}
             </tbody>
           </table>
@@ -141,7 +161,7 @@ export default function MenuManager() {
             </div>
             <div className="grid grid-cols-2 gap-4">
                <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Price</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Price (₹)</label>
                 <input 
                   type="number" 
                   step="0.01"

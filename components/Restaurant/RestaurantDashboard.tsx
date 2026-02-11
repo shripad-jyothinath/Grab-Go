@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { OrderStatus, Order } from '../../types';
-import { Check, X, Clock, BellRing, User } from 'lucide-react';
+import { Check, Clock, BellRing, User, Power, HelpCircle } from 'lucide-react';
 
 const OrderCard: React.FC<{ order: Order; action?: React.ReactNode }> = ({ order, action }) => (
   <div className="bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 mb-3 animate-in fade-in slide-in-from-bottom-2">
     <div className="flex justify-between items-start mb-2">
       <span className="font-mono text-xs text-slate-500 dark:text-slate-400">#{order.id.slice(-4)}</span>
-      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">${order.totalAmount.toFixed(2)}</span>
+      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">₹{order.totalAmount.toFixed(2)}</span>
     </div>
     <div className="space-y-1 mb-3">
       {order.items.map((item, idx) => (
@@ -27,31 +27,64 @@ const OrderCard: React.FC<{ order: Order; action?: React.ReactNode }> = ({ order
 );
 
 export default function RestaurantDashboard() {
-  const { currentUser, orders, updateOrderStatus, verifyPickup } = useStore();
+  const { currentUser, orders, restaurants, updateOrderStatus, verifyPickup, toggleRestaurantStatus } = useStore();
   const [verifyCode, setVerifyCode] = useState('');
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
+  const myRestaurant = restaurants.find(r => r.id === currentUser?.restaurantId);
   const myOrders = orders.filter(o => o.restaurantId === currentUser?.restaurantId);
   const pending = myOrders.filter(o => o.status === OrderStatus.PENDING);
   const accepted = myOrders.filter(o => o.status === OrderStatus.ACCEPTED);
   const ready = myOrders.filter(o => o.status === OrderStatus.READY);
 
-  const handleVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (activeOrderId) {
-      if (verifyPickup(activeOrderId, verifyCode)) {
-        alert("Pickup Verified! Order Completed.");
-        setVerifyCode('');
-        setActiveOrderId(null);
+  const handleGlobalVerify = (e: React.FormEvent) => {
+      e.preventDefault();
+      // Find order with this code that is READY
+      const targetOrder = ready.find(o => o.pickupCode === verifyCode);
+      
+      if (targetOrder) {
+          if (verifyPickup(targetOrder.id, verifyCode)) {
+              alert(`Order #${targetOrder.id.slice(-4)} Verified & Completed!`);
+              setVerifyCode('');
+          }
       } else {
-        alert("Incorrect Pickup Code!");
+          alert("Invalid Code or Order not Ready!");
       }
-    }
   };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6 text-slate-900 dark:text-white">Order Board</h1>
+      <div className="flex flex-col lg:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Order Board</h1>
+             
+             {/* Open/Close Toggle */}
+             {myRestaurant && (
+               <button 
+                onClick={() => toggleRestaurantStatus(myRestaurant.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition shadow-sm ${myRestaurant.isOpen ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}
+               >
+                 <Power size={18} />
+                 {myRestaurant.isOpen ? 'ONLINE' : 'OFFLINE'}
+               </button>
+             )}
+          </div>
+          
+          {/* Global Verification Input */}
+          <form onSubmit={handleGlobalVerify} className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm w-full lg:w-auto">
+              <input 
+                  type="text" 
+                  maxLength={5}
+                  placeholder="Verify 5-Digit Pickup Code"
+                  className="bg-transparent border-none outline-none text-slate-900 dark:text-white placeholder-slate-400 px-2 font-mono"
+                  value={verifyCode}
+                  onChange={e => setVerifyCode(e.target.value)}
+              />
+              <button type="submit" className="bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700 transition">
+                  <Check size={18} />
+              </button>
+          </form>
+      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-x-auto pb-4">
         {/* Pending Column */}
@@ -99,27 +132,16 @@ export default function RestaurantDashboard() {
           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl min-h-[500px] border border-transparent dark:border-slate-800">
              {ready.map(order => (
               <OrderCard key={order.id} order={order} action={
-                activeOrderId === order.id ? (
-                  <form onSubmit={handleVerify} className="mt-2 flex gap-2">
-                    <input 
-                      type="text" 
-                      maxLength={4}
-                      placeholder="Code" 
-                      className="w-20 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-center font-mono focus:ring-2 focus:ring-green-500 outline-none"
-                      value={verifyCode}
-                      onChange={e => setVerifyCode(e.target.value)}
-                      autoFocus
-                    />
-                    <button type="submit" className="flex-1 bg-green-600 text-white rounded font-medium text-sm hover:bg-green-700 transition">Verify</button>
-                    <button type="button" onClick={() => setActiveOrderId(null)} className="px-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-300 dark:hover:bg-slate-600 transition"><X size={16} /></button>
-                  </form>
-                ) : (
-                  <button onClick={() => { setActiveOrderId(order.id); setVerifyCode(''); }} className="w-full mt-2 py-2 rounded bg-green-600 text-white hover:bg-green-700 font-medium text-sm transition">
-                    Complete Pickup
-                  </button>
-                )
+                 <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded text-center border-l-4 border-indigo-500">
+                    <div className="flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300 text-sm font-medium">
+                        <HelpCircle size={16} />
+                        <span>Verify Pickup</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Ask student for code</p>
+                 </div>
               } />
             ))}
+            {ready.length === 0 && <p className="text-center text-slate-400 dark:text-slate-500 text-sm mt-10">No ready orders</p>}
           </div>
         </div>
       </div>

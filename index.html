@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="manifest" href="/manifest.json" />
     <title>Grab&Go - Campus Food Ordering</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -52,14 +54,19 @@
     "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
     "recharts": "https://esm.sh/recharts@^3.7.0",
     "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
-    "centrifuge": "https://esm.sh/centrifuge@5.0.1",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "@react-oauth/google": "https://esm.sh/@react-oauth/google@^0.13.4"
+    "@react-oauth/google": "https://esm.sh/@react-oauth/google@^0.13.4",
+    "react-qr-code": "https://esm.sh/react-qr-code@2.0.15",
+    "centrifuge": "https://esm.sh/centrifuge@^5.2.2",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4"
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased transition-colors duration-200">
     <div id="root"></div>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

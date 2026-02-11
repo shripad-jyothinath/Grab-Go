@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { User, Restaurant, MenuItem, Order, CartItem, UserRole, OrderStatus } from '../types';
-import { api } from '../services/api';
+import { api, API_URL } from '../services/api';
 import { Centrifuge } from 'centrifuge';
 
 interface StoreContextType {
@@ -32,7 +32,9 @@ interface StoreContextType {
   
   toggleRestaurantStatus: (restaurantId: string) => void;
   toggleTestMode: () => void;
-  verifyRestaurant: (id: string) => void;
+  verifyRestaurant: (id: string, status: boolean) => void;
+  declineRestaurant: (id: string) => void;
+  updateRestaurantProfile: (id: string, data: Partial<Restaurant>) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -44,13 +46,11 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isTestMode, setIsTestMode] = useState(false);
-  const [centrifuge, setCentrifuge] = useState<Centrifuge | null>(null);
+  const centrifugeRef = useRef<Centrifuge | null>(null);
 
-  // Initialize Data
   useEffect(() => {
     const init = async () => {
       try {
-        // Check for existing session
         const storedUser = localStorage.getItem('grabgo_user');
         if (storedUser) {
           const user = JSON.parse(storedUser);
@@ -65,7 +65,6 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
         setRestaurants(rests);
         setMenuItems(items);
         
-        // If logged in, fetch orders
         if (localStorage.getItem('grabgo_token')) {
           const myOrders = await api.get('/orders');
           setOrders(myOrders);
@@ -75,56 +74,73 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
       }
     };
     init();
+
+    return () => {
+      if (centrifugeRef.current) centrifugeRef.current.disconnect();
+    };
   }, []);
 
   const connectCentrifugo = async (user: User) => {
+    if (centrifugeRef.current) centrifugeRef.current.disconnect();
+
     try {
-      // Get connection token from backend
       const { token } = await api.post('/centrifugo-token', { userId: user.id });
       
-      const client = new Centrifuge('wss://talisha-unjarred-zara.ngrok-free.dev/connection/websocket', {
-        token: token
+      // Calculate WS URL from API_URL
+      // e.g. https://domain.com/api -> wss://domain.com/connection/websocket
+      const wsProtocol = API_URL.startsWith('https') ? 'wss' : 'ws';
+      const host = API_URL.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '');
+      const WS_URL = `${wsProtocol}://${host}/connection/websocket`;
+      
+      console.log(`Centrifugo connecting to: ${WS_URL}`);
+
+      const client = new Centrifuge(WS_URL, {
+        token: token,
+        debug: true
       });
 
-      client.on('connected', (ctx) => {
-        console.log("Centrifugo connected", ctx);
-      });
-
-      // Handle Incoming Orders (Common Logic)
       const handleOrderUpdate = (ctx: any) => {
-        const newOrder = ctx.data;
+        const updatedOrder = ctx.data;
         setOrders(prev => {
-          const exists = prev.find(o => o.id === newOrder.id);
-          if (exists) return prev.map(o => o.id === newOrder.id ? newOrder : o);
-          return [newOrder, ...prev];
+          const exists = prev.find(o => o.id === updatedOrder.id);
+          if (exists) return prev.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+          return [updatedOrder, ...prev];
         });
       };
 
-      // 1. Subscribe to User's private channel
+      // Namespace: orders
       const userSub = client.newSubscription(`orders:user_${user.id}`);
       userSub.on('publication', handleOrderUpdate);
       userSub.subscribe();
 
-      // 2. If Restaurant, subscribe to restaurant channel
       if (user.role === UserRole.RESTAURANT && user.restaurantId) {
         const restSub = client.newSubscription(`orders:restaurant_${user.restaurantId}`);
         restSub.on('publication', handleOrderUpdate);
         restSub.subscribe();
       }
 
-      // 3. Subscribe to public restaurant status updates
-      const statusSub = client.newSubscription('restaurant');
-      statusSub.on('publication', (ctx) => {
-        if (ctx.data.type === 'STATUS_CHANGE') {
-           setRestaurants(prev => prev.map(r => r.id === ctx.data.id ? { ...r, isOpen: ctx.data.isOpen } : r));
+      // Namespace: public
+      const publicSub = client.newSubscription('public:general');
+      publicSub.on('publication', (ctx) => {
+        const data = ctx.data;
+        if (data.type === 'STATUS_CHANGE') {
+          setRestaurants(prev => prev.map(r => r.id === data.id ? { ...r, isOpen: data.isOpen } : r));
+        } else if (data.type === 'MENU_UPDATE') {
+          setMenuItems(prev => {
+            const exists = prev.find(i => i.id === data.item.id);
+            if (exists) return prev.map(i => i.id === data.item.id ? data.item : i);
+            return [...prev, data.item];
+          });
+        } else if (data.type === 'MENU_DELETE') {
+          setMenuItems(prev => prev.filter(i => i.id !== data.id));
         }
       });
-      statusSub.subscribe();
+      publicSub.subscribe();
 
       client.connect();
-      setCentrifuge(client);
+      centrifugeRef.current = client;
     } catch (e) {
-      console.error("Failed to connect to real-time server", e);
+      console.error("Real-time connection setup failed", e);
     }
   };
 
@@ -134,14 +150,12 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
       setCurrentUser(res.user);
       localStorage.setItem('grabgo_user', JSON.stringify(res.user));
       localStorage.setItem('grabgo_token', res.token);
-      
       const userOrders = await api.get('/orders');
       setOrders(userOrders);
       connectCentrifugo(res.user);
-      
       return true;
     } catch (e) {
-      console.error(e);
+      console.error("Login error:", e);
       return false;
     }
   };
@@ -156,7 +170,10 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
     setOrders([]);
     localStorage.removeItem('grabgo_user');
     localStorage.removeItem('grabgo_token');
-    if (centrifuge) centrifuge.disconnect();
+    if (centrifugeRef.current) {
+      centrifugeRef.current.disconnect();
+      centrifugeRef.current = null;
+    }
   };
 
   const recoverPassword = async (email: string, answer: string, newPass: string) => {
@@ -213,7 +230,6 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus, pickupCode?: string) => {
-    // Optimistic update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     await api.put(`/orders/${orderId}/status`, { status });
   };
@@ -233,8 +249,8 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
   };
 
   const updateMenuItem = async (item: MenuItem) => {
-    await api.put(`/menu/${item.id}`, item);
-    setMenuItems(prev => prev.map(i => i.id === item.id ? item : i));
+    const updated = await api.put(`/menu/${item.id}`, item);
+    setMenuItems(prev => prev.map(i => i.id === item.id ? updated : i));
   };
 
   const deleteMenuItem = async (id: string) => {
@@ -251,9 +267,19 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
     }
   };
   
-  const verifyRestaurant = async (id: string) => {
-    await api.put(`/restaurants/${id}/verify`, { verified: true });
-    setRestaurants(prev => prev.map(r => r.id === id ? { ...r, verified: true } : r));
+  const verifyRestaurant = async (id: string, status: boolean) => {
+    await api.put(`/restaurants/${id}/verify`, { verified: status });
+    setRestaurants(prev => prev.map(r => r.id === id ? { ...r, verified: status } : r));
+  };
+  
+  const declineRestaurant = async (id: string) => {
+      await api.delete(`/restaurants/${id}`);
+      setRestaurants(prev => prev.filter(r => r.id !== id));
+  };
+
+  const updateRestaurantProfile = async (id: string, data: Partial<Restaurant>) => {
+      await api.put(`/restaurants/${id}`, data);
+      setRestaurants(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
   };
 
   const toggleTestMode = () => setIsTestMode(!isTestMode);
@@ -265,7 +291,8 @@ export const StoreProvider = ({ children }: React.PropsWithChildren<{}>) => {
       addToCart, removeFromCart, updateCartQuantity, clearCart, placeOrder,
       updateOrderStatus, verifyPickup,
       addMenuItem, updateMenuItem, deleteMenuItem,
-      toggleRestaurantStatus, toggleTestMode, verifyRestaurant
+      toggleRestaurantStatus, toggleTestMode, verifyRestaurant, declineRestaurant,
+      updateRestaurantProfile
     }}>
       {children}
     </StoreContext.Provider>

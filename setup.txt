@@ -1,73 +1,83 @@
-# Grab&Go - Full Stack Setup Guide
+# Grab&Go - Simplified Setup Guide (Real-time features disabled)
 
-You need 3 separate terminal windows to run this application.
-
-==================================================
-PRE-REQUISITE: GOOGLE SIGN-IN SETUP
-==================================================
-1. Go to Google Cloud Console (https://console.cloud.google.com/).
-2. Create a Project.
-3. Go to "APIs & Services" > "Credentials".
-4. Create Credentials > OAuth client ID.
-5. Application Type: Web application.
-6. Authorized JavaScript origins: 
-   - http://localhost:5173 (or your local frontend port)
-   - https://talisha-unjarred-zara.ngrok-free.dev (your ngrok domain)
-7. Copy the "Client ID".
-8. Paste it into `index.tsx` where indicated.
+Follow these steps to get your campus food platform running.
 
 ==================================================
-TERMINAL 1: Real-time Server (Centrifugo)
+STEP 0: SERVER ENVIRONMENT SETUP
 ==================================================
-1. Download Centrifugo v5 or v6 from: https://centrifugal.dev/docs/getting-started/installation
-2. Create a file named `config.json` in the same folder as the centrifugo executable.
-3. Paste the content below into `config.json`. 
+Your server should be running Node.js 20.x.
 
-   {
-     "token_hmac_secret_key": "ijKhdtFxrrBiDeFY295DF6EAKe_DbM1jcHoz7ydHxmRjwm8sYZXvWAttbuSQTGVtNUkbiYV1WK58x-6FA7RBog",
-     "api_key": "yxrscKEyV2iBp5B8XnPaduwCuqQwOxopt9gzTF1AGIDUBmE4WA4HCq-RcTjAF85IbsDBxEekxmhlyRzU1MQmlg",
-     "admin_password": "admin",
-     "admin_secret": "secret",
-     "allowed_origins": ["*"],
-     "port": 8000,
-     "namespaces": [
-       {
-         "name": "orders",
-         "publish": true,
-         "subscribe_to_publish": true
-       },
-       {
-         "name": "restaurant",
-         "publish": true,
-         "subscribe_to_publish": true
-       }
-     ]
-   }
+1. Update package list:
+   sudo apt-get update
 
-4. Run Centrifugo:
-   ./centrifugo --config=config.json
+2. Install Node.js 20.x:
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+   sudo apt-get install -y nodejs
 
 ==================================================
-TERMINAL 2: Backend Server (Node.js)
+STEP 1: DATABASE & BACKEND SETUP
 ==================================================
-1. Navigate to your project root folder.
-2. Install the required backend libraries:
-   npm install express sqlite3 cors body-parser jsonwebtoken axios bcryptjs
+1. Navigate to your project folder.
+2. Install dependencies:
+   npm install express sqlite3 cors body-parser jsonwebtoken bcryptjs multer
 
-3. Run the server:
+3. Start the server:
    node server.js
 
-   *NOTE:* If you want to reset the admin account to the new credentials 
-   (admin@grabandgo.com / Universe2007$), delete the 'grabgo.db' file before restarting.
+*NOTE:* Default Admin: admin@grabandgo.com / Universe2007$
 
 ==================================================
-TERMINAL 3: Frontend & Tunneling
+STEP 2: FRONTEND SETUP
 ==================================================
-1. Install Frontend Dependencies:
-   npm install @react-oauth/google jwt-decode
+1. Install frontend dependencies:
+   npm install @react-oauth/google jwt-decode react-qr-code lucide-react react-router-dom
 
-2. Setup Tunnel (for mobile testing/UPI links):
-   ngrok http 3000 --domain=talisha-unjarred-zara.ngrok-free.dev
-
-3. Start React Frontend:
+2. Start the development server:
    npm run dev
+
+==================================================
+(OPTIONAL) CENTRIFUGO CONFIGURATION
+==================================================
+If you still wish to run Centrifugo for other purposes, use this config.json format 
+(Note: The application code no longer connects to it to ensure stability):
+
+{
+  "client": {
+    "token": {
+      "hmac_secret_key": "ijKhdtFxrrBiDeFY295DF6EAKe_DbM1jcHoz7ydHxmRjwm8sYZXvWAttbuSQTGVtNUkbiYV1WK58x-6FA7RBog"
+    },
+    "allowed_origins": [
+      "https://grabandgo.tech",
+      "https://talisha-unjarred-zara.ngrok-free.dev"
+    ]
+  },
+  "admin": {
+    "enabled": true,
+    "password": "8dsuWu9n56UtqfagZXHa6A",
+    "secret": "Re7C6h_zp7QfvhwDIA-hhQevipSOU2bZ0XyvzKK3scRE_I29fYCycHJQRJQ20Kz2vCOUstP58fudm2C7kL6SFw"
+  },
+  "http_api": {
+    "key": "yxrscKEyV2iBp5B8XnPaduwCuqQwOxopt9gzTF1AGIDUBmE4WA4HCq-RcTjAF85IbsDBxEekxmhlyRzU1MQmlg"
+  },
+  "namespaces": [
+    {
+      "name": "public",
+      "publish": true,
+      "subscribe_to_publish": true,
+      "history_size": 300,
+      "history_ttl": "600s"
+    },
+    {
+      "name": "orders",
+      "presence": true,
+      "history_size": 10,
+      "history_ttl": "300s",
+      "join_leave": true
+    },
+    {
+      "name": "restaurant",
+      "presence": true,
+      "publish": true
+    }
+  ]
+}

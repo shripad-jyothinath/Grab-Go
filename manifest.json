@@ -1,0 +1,22 @@
+{
+  "name": "Grab&Go",
+  "short_name": "Grab&Go",
+  "description": "Campus food ordering made easy.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/7541/7541673.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/7541/7541673.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

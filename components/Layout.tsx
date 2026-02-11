@@ -1,7 +1,8 @@
 import React from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { UserRole } from '../types';
+import InstallPrompt from './InstallPrompt';
 import { 
   Home, 
   ShoppingBag, 
@@ -9,10 +10,12 @@ import {
   Menu as MenuIcon, 
   LogOut, 
   ShieldAlert,
-  ShoppingCart
+  ShoppingCart,
+  Settings,
+  History
 } from 'lucide-react';
 
-const Layout: React.FC = () => {
+const Layout: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
   const { currentUser, logout, isTestMode, cart } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -26,6 +29,7 @@ const Layout: React.FC = () => {
   if (currentUser?.role === UserRole.STUDENT) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 md:pb-0 transition-colors duration-200">
+        <InstallPrompt />
         {isTestMode && (
           <div className="bg-yellow-400 text-yellow-900 text-xs text-center py-1 font-bold">
             TEST MODE ENABLED - ORDERS ARE SIMULATED
@@ -64,7 +68,7 @@ const Layout: React.FC = () => {
 
         {/* Main Content Container */}
         <main className="max-w-7xl mx-auto p-4 md:p-8">
-          <Outlet />
+          {children}
         </main>
 
         {/* Mobile Bottom Nav */}
@@ -85,6 +89,7 @@ const Layout: React.FC = () => {
   // Restaurant & Admin Layout (Responsive: Sidebar on Desktop, Header + Bottom Nav on Mobile)
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col md:flex-row pb-20 md:pb-0 transition-colors duration-200">
+       <InstallPrompt />
        {isTestMode && (
           <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-400 text-yellow-900 text-xs text-center py-1 font-bold md:hidden">
             TEST MODE
@@ -115,6 +120,14 @@ const Layout: React.FC = () => {
                 <MenuIcon size={20} />
                 Menu Manager
               </Link>
+              <Link to="/restaurant/history" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${location.pathname.includes('history') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
+                <History size={20} />
+                Order History
+              </Link>
+              <Link to="/restaurant/settings" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${location.pathname.includes('settings') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}>
+                <Settings size={20} />
+                Settings
+              </Link>
             </>
           )}
 
@@ -136,7 +149,7 @@ const Layout: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto w-full text-slate-900 dark:text-slate-100">
-        <Outlet />
+        {children}
       </main>
 
       {/* Mobile Bottom Nav for Restaurant/Admin */}
@@ -145,11 +158,19 @@ const Layout: React.FC = () => {
             <>
               <Link to="/restaurant/dashboard" className={`flex flex-col items-center gap-1 text-xs ${location.pathname.includes('dashboard') ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
                 <LayoutDashboard size={22} />
-                <span>Dashboard</span>
+                <span>Home</span>
               </Link>
               <Link to="/restaurant/menu" className={`flex flex-col items-center gap-1 text-xs ${location.pathname.includes('menu') ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
                 <MenuIcon size={22} />
                 <span>Menu</span>
+              </Link>
+              <Link to="/restaurant/history" className={`flex flex-col items-center gap-1 text-xs ${location.pathname.includes('history') ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
+                <History size={22} />
+                <span>History</span>
+              </Link>
+              <Link to="/restaurant/settings" className={`flex flex-col items-center gap-1 text-xs ${location.pathname.includes('settings') ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
+                <Settings size={22} />
+                <span>Settings</span>
               </Link>
             </>
           )}
